@@ -2,11 +2,11 @@
 # Multiplatform Mega Drive toolchain builder and installer
 # This is the 'main' Makefile that calls others in their own subdirectories
 
-export MARSDEV ?= ${HOME}/mars
+export MARSDEV ?= /opt/mars
 
-.PHONY: all $(MAKECMDGOALS)
+.PHONY: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem $(MAKECMDGOALS)
 
-all: m68k-toolchain z80-tools sgdk blastem
+all: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem
 
 m68k-toolchain:
 	make -C toolchain ARCH=m68k
