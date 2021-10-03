@@ -9,19 +9,25 @@ NM   = $(MARSBIN)/m68k-elf-nm
 OBJC = $(MARSBIN)/m68k-elf-objcopy
 
 BINTOS   = $(TOOLSBIN)/bintos 
-RESCOMP  = $(TOOLSBIN)/rescomp
+RESCOMP  = java -jar $(TOOLSBIN)/rescomp.jar
 XGMTOOL  = $(TOOLSBIN)/xgmtool
 PCMTORAW = $(TOOLSBIN)/pcmtoraw
 WAVTORAW = $(TOOLSBIN)/wavtoraw
 SIZEBND  = $(TOOLSBIN)/sizebnd
 
 GCC_VER := $(shell $(CC) -dumpversion)
+
+# Need the LTO plugin so NM can dump our symbol table
 PLUGIN   = $(MARSDEV)/m68k-elf/libexec/gcc/m68k-elf/$(GCC_VER)
+LTO_SO   = liblto_plugin.so
+ifeq ($(OS),Windows_NT)
+	LTO_SO = liblto_plugin-0.dll
+endif
 
 INCS    = -I$(MARSDEV)/m68k-elf/include -Isrc -Ires -Iinc
 LIBS    = -L$(MARSDEV)/m68k-elf/lib -L$(MARSDEV)/m68k-elf/lib/gcc/m68k-elf/$(GCC_VER) -lmd -lgcc
 CCFLAGS = -m68000 -Wall -Wextra -O3 -std=gnu99 -c -fomit-frame-pointer -fno-builtin \
-		  -flto -fuse-linker-plugin -fno-web -fno-gcse -fno-unit-at-a-time
+		  -flto -fuse-linker-plugin -fno-web -fno-gcse -fno-unit-at-a-time -fcommon
 ASFLAGS = -m68000 --register-prefix-optional
 LDFLAGS = -T $(MARSDEV)/ldscripts/sgdk.ld -nostdlib
 
@@ -42,7 +48,7 @@ OBJS += $(SS:.s=.o)
 all: rom.bin symbol.txt
 
 symbol.txt: rom.bin
-	$(NM) --plugin=$(PLUGIN)/liblto_plugin.so -n rom.elf > symbol.txt
+	$(NM) --plugin=$(PLUGIN)/$(LTO_SO) -n rom.elf > symbol.txt
 
 src/boot/sega.o: src/boot/rom_head.bin
 	$(AS) $(ASFLAGS) src/boot/sega.s -o $@

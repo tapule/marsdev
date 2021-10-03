@@ -1,9 +1,10 @@
 /*
 * Copyright 2014 ammianus
 */
-#include <stdlib.h>
-#include <math.h>
+//#include <stdlib.h>
+//#include <math.h>
 #include "types.h"
+#include "string.h"
 #include "32x.h"
 #include "hw_32x.h"
 #include "32x_images.h"
@@ -149,7 +150,7 @@ int main(void)
 	//game loop
 	while ( more ) {
 		handle_input();
-		HwMdClearScreen();
+		//HwMdClearScreen(); // causes flicker when enabled. 
 
 		
 		// wait on flip to finish 

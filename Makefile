@@ -2,9 +2,12 @@
 # Multiplatform Mega Drive toolchain builder and installer
 # This is the 'main' Makefile that calls others in their own subdirectories
 
+MARSDEV ?= /opt/mars
 export MARSDEV ?= /opt/mars
 
-.PHONY: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem $(MAKECMDGOALS)
+# .PHONY: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem $(MAKECMDGOALS)
+.PHONY: all m68k-toolchain m68k-toolchain-newlib  sh-toolchain sh-toolchain-newlib
+.PHONY: m68k-gdb sh-gdb z80-tools sik-tools flamewing-tools sgdk
 
 all: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem
 
@@ -26,12 +29,9 @@ sh-toolchain-newlib:
 sh-gdb:
 	make -C gdb ARCH=sh
 
-z80-toolchain:
-	make -C toolchain all-nogcc ARCH=z80
-
 z80-tools:
 	make -C z80-tools
-	
+
 sik-tools:
 	make -C sik-tools
 
@@ -39,13 +39,12 @@ flamewing-tools:
 	make -C flamewing-tools
 
 sgdk:
-	make -C sgdk SGDK_VER=v1.60
-	
-sgdk-legacy:
-	make -C sgdk SGDK_VER=v1.33
+	make -C sgdk
 
 blastem:
 	make -C blastem
+
+.PHONY: clean toolchain-clean gdb-clean tools-clean sgdk-clean blastem-clean
 
 clean: toolchain-clean gdb-clean tools-clean sgdk-clean blastem-clean
 
