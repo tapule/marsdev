@@ -1,21 +1,29 @@
-BLASTEM_BITS = 64
-BLASTEM_VER  = 0.6.2
-BLASTEM_DIR  = blastem$(BLASTEM_BITS)-$(BLASTEM_VER)
-BLASTEM_PKG  = $(BLASTEM_DIR).tar.gz
+BLASTEM_DIR = blastem
+PYTHON = python2
 
-.PHONY: all blastem clean
+.PHONY: all blastem blastem_pkg sdl glew clean
 
 all: blastem
 
-blastem: $(BLASTEM_DIR)
-	@echo "+++ Copying $(BLASTEM_DIR)..."
-	cp -f -r $(BLASTEM_DIR) $(MARSDEV)/blastem
+#blastem_pkg sdl glew
+blastem: 
+	#cd $(BLASTEM_DIR) && sh build_release
+	echo "+++ Copying $(BLASTEM_DIR)..."
+	export VERSTR=`./blastem/blastem -v`
+	export VER=`echo $(VERSTR) | awk '/blastem/ { gsub(/\r/, "", $2); print $2 }'`
+	echo $(VER) 
+	#cp -f -r `./$(BLASTEM_DIR)/blastem -v` $(MARSDEV)/blastem
 
-$(BLASTEM_DIR): $(BLASTEM_PKG)
-	tar xf $(BLASTEM_PKG)
+sdl: blastem_pkg
+	git clone https://github.com/libsdl-org/SDL $(BLASTEM_DIR)/sdl
+	
+glew: blastem_pkg
+	git clone https://github.com/nigels-com/glew.git $(BLASTEM_DIR)/glew
+	cd $(BLASTEM_DIR)/glew/auto &&	make PYTHON=$(PYTHON)
 
-$(BLASTEM_PKG):
-	@wget https://www.retrodev.com/blastem/nightlies/$(BLASTEM_PKG)
+blastem_pkg: clean
+	hg clone https://www.retrodev.com/repos/blastem $(BLASTEM_DIR)
+	sed -i 's/env python/env $(PYTHON)/g' $(BLASTEM_DIR)/img2tiles.py
 
 clean:
-	rm -rf $(BLASTEM_DIR)
+	rm -rf $(BLASTEM_DIR) 

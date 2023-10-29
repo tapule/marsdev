@@ -5,8 +5,11 @@ MARSLIB = $(MARSDEV)/lib
 all: clean $(MARSINC) $(MARSLIB)
 	# mdtools depends on mdcomp, install that first
 	git clone https://github.com/flamewing/mdcomp
-	cd mdcomp && ./autogen.sh "--prefix=$(MARSDEV)" \
-			  && make install
+	#cd mdcomp && ./autogen.sh "--prefix=$(MARSDEV)" \
+	#		  && make install
+	cd mdcomp &&  \
+	cmake -DCMAKE_INSTALL_PREFIX:PATH=$(MARSDEV) -S . -B build \
+	&&  cmake --build build -j2 &&  cmake --install build
 	git clone https://github.com/flamewing/mdtools
 	cd mdtools && ./autogen.sh "--prefix=$(MARSDEV)" \
 				  "CPPFLAGS=-I$(MARSINC) -L$(MARSLIB)" "LDFLAGS=-L$(MARSLIB)" \

@@ -1,4 +1,4 @@
-GDB_VER = 9.2
+GDB_VER = 11.1
 GDB_DIR = gdb-$(GDB_VER)
 GDB_PKG = $(GDB_DIR).tar.gz
 

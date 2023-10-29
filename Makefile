@@ -3,13 +3,13 @@
 # This is the 'main' Makefile that calls others in their own subdirectories
 
 MARSDEV ?= /opt/mars
-export MARSDEV ?= /opt/mars
+export MARSDEV
 
 # .PHONY: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem $(MAKECMDGOALS)
-.PHONY: all m68k-toolchain m68k-toolchain-newlib  sh-toolchain sh-toolchain-newlib
-.PHONY: m68k-gdb sh-gdb z80-tools sik-tools flamewing-tools sgdk
+.PHONY: all m68k-toolchain m68k-toolchain-newlib sh-toolchain sh-toolchain-newlib
+.PHONY: m68k-gdb sh-gdb z80-tools sik-tools flamewing-tools sgdk blastem
 
-all: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk blastem
+all: m68k-toolchain m68k-gdb z80-tools sik-tools flamewing-tools sgdk #blastem
 
 m68k-toolchain:
 	make -C toolchain ARCH=m68k
