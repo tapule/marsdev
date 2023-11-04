@@ -1,8 +1,15 @@
 *.log
 *.o
+*.a
+*.lib
 *.elf
 *.bin
-*.32x
+*.gen
+*.lst
+*.old
+*.bak
+dep-*
+mk-*
 resources.h
 symbol.txt
 
@@ -11,11 +18,18 @@ symbol.txt
 *.tar.xz
 *.zip
 
+.vscode/
+
+bin/
+out/
+mars/
 toolchain/gcc-*/
 toolchain/binutils-*/
 toolchain/newlib-*/
 z80-tools/sjasm/
 sgdk/SGDK/
 sik-tools/mdtools/
+
+
 flamewing-tools/mdcomp/
 flamewing-tools/mdtools/

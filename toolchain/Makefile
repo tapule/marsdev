@@ -1,10 +1,10 @@
-# == GCC Cross Compiler toolchain for Mega Drive and 32X ==
+# == GCC Cross Compiler toolchain for Mega Drive ==
 # Based on kubilus1's, which was in turn based on Chilly Willy's
 
 # == Flag Explanations ==
 # - For all targets
 # enable-shared=no:      Disables dynamic linking -- static only
-# disable-nls:           Native language support, not needed
+# enable-nls:            Compiler Native language support
 # disable-werror:        Just who's idea was it for Werror to be the default?
 # - For binutils
 # enable-install-libbfd: Required for LTO to work
@@ -13,6 +13,7 @@
 # disable-libssp:        Library that requires stdlib causing failure
 # disable-threads/tls:   MD programs are freestanding, so no thread model
 # disable-multilib:      Only compiles m68000 support (no other m680x0)
+# disable-hosted-libstdxx: (C++) Only build the freestanding parts of libstdc++
 # without-libstdcxx:     (C++) The STL is way too big for MD
 
 # == Resuming in case of failure ==
@@ -21,120 +22,134 @@
 
 # == Newlib ==
 # To include optional Newlib support, use the 'all-newlib' target
-# make all-newlib ARCH=m68k
-# Newlib provides a libc implementation for embedded systems
-# However, we need the cross compiler to build it first
+# make all-newlib
+# Newlib provides a libc implementation for embedded systems.
+# However, we need the cross compiler to build it first.
 # Because of this GCC is built in 2 passes:
-# The first pass builds C support only for building newlib
-# The second pass builds everything now that newlib's libc is available
+# The first pass builds C support only for building newlib.
+# The second pass builds everything now that newlib's libc is available.
 
 # == Additional Languages ==
 # If you want to build support for languages other than C define "LANGS" like this:
-# make ARCH=m68k LANGS=c,c++
-# C is required, enabled by default and the most well supported
-# C++ is not extensively tested but all non-STL features are expected to work
-# Go support has been dropped as it requires a beefy runtime to do anything useful
+# make LANGS=c,c++
+# C is required, enabled by default and the most well supported.
+# C++ is not extensively tested but all non-STL features are expected to work.
 
-GCC_VER      ?= 11.2.0
-BINUTILS_VER ?= 2.37
-NEWLIB_VER   ?= 4.1.0
+MARSDEV = $(MARS_BUILD_DIR)
 
-GNU_MIRROR   ?= https://mirrors.tripadvisor.com/gnu
+GNU_MIRROR    ?= https://ftp.gnu.org/gnu
+#GNU_MIRROR   ?= https://mirrors.tripadvisor.com/gnu
+NEWLIB_MIRROR ?= ftp://sourceware.org/pub
 
-GCC_DIR       = gcc-$(GCC_VER)
+BINUTILS_VER ?= 2.41
+GCC_VER      ?= 13.2.0
+NEWLIB_VER   ?= 4.3.0.20230120
+
 BINUTILS_DIR  = binutils-$(BINUTILS_VER)
+GCC_DIR       = gcc-$(GCC_VER)
 NEWLIB_DIR    = newlib-$(NEWLIB_VER)
 
-GCC_PKG       = $(GCC_DIR).tar.gz
-BINUTILS_PKG  = $(BINUTILS_DIR).tar.gz
+BINUTILS_PKG  = $(BINUTILS_DIR).tar.xz
+GCC_PKG       = $(GCC_DIR).tar.xz
 NEWLIB_PKG    = $(NEWLIB_DIR).tar.gz
 
-LDSCRIPTS = $(MARSDEV)/ldscripts
-
-ifeq ($(ARCH),m68k)
-	CPU_ARGS = --with-cpu=m68000
-endif
-ifeq ($(ARCH),sh)
-	CPU_ARGS = --with-endian=big --with-cpu=m2
-endif
-
-TARGET  = $(ARCH)-elf
+TARGET  = m68k-elf
 PREFIX  = $(MARSDEV)/$(TARGET)
 PATH   := $(PREFIX)/bin:$(PATH)
 LOGDIR := $(shell pwd)
 
-.PHONY: all all-newlib clean
+LANGS ?= c
 
-all: mk-binutils mk-gcc $(LDSCRIPTS)
+# Detect the number of processors for a parallel make
+NPROC := $(shell nproc --all)
 
-all-newlib: LANGS ?= c
-all-newlib: mk-binutils mk-gcc mk-newlib mk-gcc2 $(LDSCRIPTS)
 
-mk-binutils: $(BINUTILS_DIR)
+.PHONY: all with-newlib clean
+
+all: BUILD_LANGS = $(LANGS)
+all: mk-binutils mk-gcc
+
+with-newlib: BUILD_LANGS = c
+with-newlib: mk-binutils mk-gcc mk-newlib mk-gcc-newlib
+
 mk-binutils: BUILD_DIR=$(BINUTILS_DIR)/build
-mk-binutils:
-	@echo "+++ Building $(BINUTILS_DIR) for $(ARCH)..."
+mk-binutils: $(BINUTILS_DIR)
+	@echo "+++ Building $(BINUTILS_DIR) for m68k..."
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
-		../configure --target=$(TARGET) --prefix=$(PREFIX) $(CPU_ARGS) \
-		--enable-install-libbfd --enable-shared=no --disable-nls --disable-werror \
-		> $(LOGDIR)/binutils-$(ARCH).log 2>&1
-	make -C $(BUILD_DIR) all install-strip \
-		>> $(LOGDIR)/binutils-$(ARCH).log 2>&1
+		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
+		--libdir=$(MARSDEV)/$(TARGET)/lib \
+		--libexecdir=$(MARSDEV)/$(TARGET)/libexec \
+		--enable-install-libbfd --enable-shared=no --disable-werror \
+		> $(LOGDIR)/binutils.log 2>&1
+	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/binutils.log 2>&1
+	make -C $(BUILD_DIR) install-strip  >> $(LOGDIR)/binutils.log 2>&1
+	@rm -rf $(BUILD_DIR)
 	@touch mk-binutils
-	@rm -rf $(BUILD_DIR)
 
-mk-gcc: $(GCC_DIR)
 mk-gcc: BUILD_DIR=$(GCC_DIR)/build
-mk-gcc:
-	@echo "+++ Building $(GCC_DIR) for $(ARCH)..."
-	cd $(GCC_DIR) && ./contrib/download_prerequisites \
-		> $(LOGDIR)/gcc-$(ARCH).log 2>&1
+mk-gcc: $(GCC_DIR)
+	@echo "+++ Building $(GCC_DIR) for m68k..."
+	cd $(GCC_DIR) && \
+		./contrib/download_prerequisites > $(LOGDIR)/gcc.log 2>&1
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
-		../configure --target=$(TARGET) --prefix=$(PREFIX) \
-		--enable-languages=c $(CPU_ARGS) \
-		--without-headers --disable-libssp \
-		--disable-threads --disable-tls --disable-multilib \
-		--enable-shared=no --disable-nls --disable-werror \
-		>> $(LOGDIR)/gcc-$(ARCH).log 2>&1
-	make -C $(BUILD_DIR) all install-strip \
-		>> $(LOGDIR)/gcc-$(ARCH).log 2>&1
+		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
+		--libdir=$(MARSDEV)/$(TARGET)/lib \
+		--libexecdir=$(MARSDEV)/$(TARGET)/libexec \
+		--enable-languages=$(BUILD_LANGS) \
+		--without-headers --disable-libssp --disable-threads --disable-tls \
+		--disable-multilib --enable-shared=no --disable-werror \
+		>> $(LOGDIR)/gcc.log 2>&1
+	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/gcc.log 2>&1
+	make -C $(BUILD_DIR) install-strip  >> $(LOGDIR)/gcc.log 2>&1
+	@rm -rf $(BUILD_DIR)
 	@touch mk-gcc
-	@rm -rf $(BUILD_DIR)
 
-mk-newlib: $(NEWLIB_DIR)
 mk-newlib: BUILD_DIR=$(NEWLIB_DIR)/build
-mk-newlib:
-	@echo "+++ Building $(NEWLIB_DIR) for $(ARCH)..."
+mk-newlib: $(NEWLIB_DIR)
+	@echo "+++ Building $(NEWLIB_DIR) for m68k..."
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
-		../configure --target=$(TARGET) --prefix=$(PREFIX) $(CPU_ARGS) \
-		--disable-multilib --disable-nls --disable-werror \
-		> $(LOGDIR)/newlib-$(ARCH).log 2>&1
-	make -C $(BUILD_DIR) all install \
-		>> $(LOGDIR)/newlib-$(ARCH).log 2>&1
+		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
+		--libdir=$(MARSDEV)/$(TARGET)/lib \
+		--libexecdir=$(MARSDEV)/$(TARGET)/libexec \
+		--disable-multilib --disable-werror \
+		> $(LOGDIR)/newlib.log 2>&1
+	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/newlib.log 2>&1
+	make -C $(BUILD_DIR) install >> $(LOGDIR)/newlib.log 2>&1
+	@rm -rf $(BUILD_DIR)
 	@touch mk-newlib
-	@rm -rf $(BUILD_DIR)
 
-mk-gcc2: $(GCC_DIR)
-mk-gcc2: BUILD_DIR=$(GCC_DIR)/build
-mk-gcc2:
-	@echo "+++ Building $(GCC_DIR) for $(ARCH) (Pass 2)..."
+mk-gcc-newlib: BUILD_DIR=$(GCC_DIR)/build
+mk-gcc-newlib: $(GCC_DIR)
+	@echo "+++ Building $(GCC_DIR) for m68k with newlib..."
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
-		../configure --target=$(TARGET) --prefix=$(PREFIX) \
-		--enable-languages=$(LANGS) $(CPU_ARGS) \
-		--without-headers --with-newlib --disable-libssp \
-		--disable-libstacktrace --disable-libstdcxx \
-		--disable-threads --disable-tls --disable-multilib \
-		--enable-shared=no --disable-nls --disable-werror \
-		> $(LOGDIR)/gcc2-$(ARCH).log 2>&1
-	make -C $(BUILD_DIR) all install-strip \
-		>> $(LOGDIR)/gcc2-$(ARCH).log 2>&1
-	@touch mk-gcc2
+		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
+		--libdir=$(MARSDEV)/$(TARGET)/lib \
+		--libexecdir=$(MARSDEV)/$(TARGET)/libexec \
+		--enable-languages=$(LANGS) \
+		--without-headers --with-newlib --disable-hosted-libstdxx \
+		--disable-libssp --disable-threads --disable-tls --disable-multilib \
+		--enable-shared=no --disable-werror \
+		> $(LOGDIR)/gcc-newlib.log 2>&1
+	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/gcc-newlib.log 2>&1
+	make -C $(BUILD_DIR) install-strip  >> $(LOGDIR)/gcc-newlib.log 2>&1
 	@rm -rf $(BUILD_DIR)
+	@touch mk-gcc-newlib
 
+# Download packages from mirror
+$(BINUTILS_PKG):
+	@wget $(GNU_MIRROR)/binutils/$(BINUTILS_PKG)
+
+$(GCC_PKG):
+	@wget $(GNU_MIRROR)/gcc/gcc-$(GCC_VER)/$(GCC_PKG)
+
+$(NEWLIB_PKG):
+	@wget $(NEWLIB_MIRROR)/newlib/$(NEWLIB_PKG)
+
+# Extract source packages with tar
 $(BINUTILS_DIR): $(BINUTILS_PKG)
 	tar xf $(BINUTILS_PKG)
 
@@ -144,20 +159,8 @@ $(GCC_DIR): $(GCC_PKG)
 $(NEWLIB_DIR): $(NEWLIB_PKG)
 	tar xf $(NEWLIB_PKG)
 
-$(BINUTILS_PKG):
-	@curl -O $(GNU_MIRROR)/binutils/$(BINUTILS_PKG)
-
-$(GCC_PKG):
-	@curl -O $(GNU_MIRROR)/gcc/gcc-$(GCC_VER)/$(GCC_PKG)
-
-$(NEWLIB_PKG):
-	@curl -O ftp://sourceware.org/pub/newlib/$(NEWLIB_PKG)
-
-$(LDSCRIPTS):
-	cp -rf ldscripts/ $(LDSCRIPTS)
-
 clean:
-	rm -rf $(GCC_DIR)
 	rm -rf $(BINUTILS_DIR)
+	rm -rf $(GCC_DIR)
 	rm -rf $(NEWLIB_DIR)
-	rm -f mk-binutils mk-gcc mk-newlib mk-gcc2
+	rm -f mk-binutils mk-gcc mk-newlib mk-gcc-newlib

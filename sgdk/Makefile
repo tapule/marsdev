@@ -1,65 +1,105 @@
-MARSBIN  = $(MARSDEV)/m68k-elf/bin
-TOOLSBIN = $(MARSDEV)/bin
+MARSDEV = $(MARS_BUILD_DIR)
+MARSBIN = $(MARSDEV)/m68k-elf/bin
 
-BINTOS         = $(TOOLSBIN)/bintos
-RESCOMP        = $(TOOLSBIN)/rescomp.jar
-XGMTOOL        = $(TOOLSBIN)/xgmtool
-XGMROMBUILDER  = $(TOOLSBIN)/xgmRomBuilder.jar
-SIZEBND        = $(TOOLSBIN)/sizebnd
-LZ4W           = $(TOOLSBIN)/lz4w.jar
-APJ            = $(TOOLSBIN)/apj.jar
+GDK := $(MARSDEV)/m68k-elf
+INC := $(GDK)/inc
+BIN := $(GDK)/bin
+LIB := $(GDK)/lib
 
-SGDK_VER ?= v1.62
+BINTOS         = $(BIN)/bintos
+RESCOMP        = $(BIN)/rescomp.jar
+XGMTOOL        = $(BIN)/xgmtool
+XGMROMBUILDER  = $(BIN)/xgmRomBuilder.jar
+SIZEBND        = $(BIN)/sizebnd.jar
+LZ4W           = $(BIN)/lz4w.jar
+APJ            = $(BIN)/apj.jar
 
-.PHONY: all tools libmd clean
+SGDK_VER ?= master
+SGDK_OPT ?= default
+
+.PHONY: all tools libmd samples clean
 
 all: SGDK tools libmd
 
 tools: $(BINTOS) $(RESCOMP) $(XGMTOOL) $(XGMROOMBUILDER) $(SIZEBND) $(LZ4W) $(APJ)
 
-libmd:
-	cp -f Makefile.libmd SGDK/Makefile
-	if [ -f "config.h" ]; then cp -f config.h SGDK/inc/config.h; fi
-	# Release version
-	make -C SGDK clean
-	make -C SGDK
-	cp -f SGDK/libmd.a $(MARSDEV)/m68k-elf/lib/libmd.a
-	# Debug version
-	make -C SGDK clean
-	make -C SGDK debug
-	cp -f SGDK/libmd-debug.a $(MARSDEV)/m68k-elf/lib/libmd-debug.a
-	# Copy headers
-	cp -f SGDK/inc/*.h $(MARSDEV)/m68k-elf/include/
-	cp -f SGDK/res/*.h $(MARSDEV)/m68k-elf/include/
+libmd: $(MARSBIN) SGDK
+	# Copy SGDK files to toolchain
+	cp -rf SGDK/inc $(GDK)/
+	cp -rf SGDK/res $(GDK)/
+	cp -rf SGDK/src $(GDK)/
+	cp -f SGDK/common.mk $(GDK)/
+	cp -f SGDK/makelib.gen $(GDK)/
+	cp -f SGDK/makefile.gen $(GDK)/
+	cp -f SGDK/md.ld $(GDK)/
+	# release & debug
+	#cp -f config-$(SGDK_OPT).h $(INC)/config.h
+	make -C $(GDK) -f makelib.gen cleanrelease
+	make -C $(GDK) -f makelib.gen release
+	make -C $(GDK) -f makelib.gen cleandebug
+	make -C $(GDK) -f makelib.gen debug
+	# Clean intermediate files only
+	make -C $(GDK) -f makelib.gen cleanobj cleandep cleanlst
 	
 SGDK:
-	git clone --branch $(SGDK_VER) https://github.com/Stephane-D/SGDK
+	git clone --depth=1 --branch $(SGDK_VER) https://github.com/Stephane-D/SGDK
+	# Linux native branch in common.mk breaks LTO plugin, this is a workaround
+	mv -f SGDK/common.mk SGDK/common.mk.bak
+	cp -f common.mk SGDK/common.mk
+
+# SGDK Samples
+# If a sample is commented, it fails to build (out of date or special hardware required)
+
+$(GDK)/lib/libmd.a: libmd
+	@true
+
+samples: $(MARSBIN) SGDK $(GDK)/lib/libmd.a
+	cd SGDK/sample/basics/hello-world && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/basics/image && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/bench && make -f $(GDK)/makefile.gen
+	cd 'SGDK/sample/bitmap/cube 3D' && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/bitmap/partic && make -f $(GDK)/makefile.gen
+	#cd SGDK/sample/console && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/demo/bad-apple && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/demo/starfield-donut && make -f $(GDK)/makefile.gen
+	#cd SGDK/sample/flash-save && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/fx/h-int/scaling && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/fx/h-int/wobble && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/fx/hilight-shadow && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/fx/scroll/linescroll && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/joy-test && make -f $(GDK)/makefile.gen
+	#cd SGDK/sample/megawifi && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/multitasking && make -f $(GDK)/makefile.gen
+	#cd SGDK/sample/platformer && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/sonic && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/sound && make -f $(GDK)/makefile.gen
+	#cd SGDK/sample/xgm-player && make -f $(GDK)/makefile.gen
 
 # Tools
 
-$(BINTOS):
+$(BINTOS): $(MARSBIN)
 	gcc SGDK/tools/bintos/src/bintos.c -o $@
 	
-$(RESCOMP):
+$(RESCOMP): $(MARSBIN)
 	cp -f SGDK/bin/rescomp.jar $@
 	
-$(XGMTOOL):
+$(XGMTOOL): $(MARSBIN)
 	cd SGDK/tools/xgmtool/src && gcc *.c -I../inc -lm -o $@
 
-$(XGMROMBUILDER):
+$(XGMROMBUILDER): $(MARSBIN)
 	cp -f SGDK/bin/xgmRomBuilder.jar $@
 	
-$(SIZEBND):
-	gcc SGDK/tools/sizebnd/src/sizebnd.c -o $@
+$(SIZEBND): $(MARSBIN)
+	cp -f SGDK/bin/sizebnd.jar $@
 
-$(LZ4W):
+$(LZ4W): $(MARSBIN)
 	cp -f SGDK/bin/lz4w.jar $@
 
 $(APJ):
 	cp -f SGDK/bin/apj.jar $@
 
-$(TOOLSBIN):
-	mkdir -p $(TOOLSBIN)
+$(MARSBIN):
+	mkdir -p $(MARSBIN)
 
 clean:
 	rm -rf SGDK

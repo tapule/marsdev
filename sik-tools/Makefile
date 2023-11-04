@@ -1,4 +1,5 @@
-MARSBIN = $(MARSDEV)/bin
+MARSDEV = $(MARS_BUILD_DIR)
+MARSBIN = $(MARSDEV)/m68k-elf/bin
 
 MDTILER  = $(MARSBIN)/mdtiler
 MIDI2ESF = $(MARSBIN)/midi2esf
@@ -22,7 +23,6 @@ all: $(HEADGEN) $(ROMFIX)
 
 mdtools:
 	git clone https://github.com/sikthehedgehog/mdtools
-	#git clone https://github.com/andwn/mdtools
 
 $(MDTILER): mdtools $(MARSBIN)
 	make -C mdtools/mdtiler/tool
@@ -53,11 +53,8 @@ $(PCM2EWF): mdtools $(MARSBIN)
 	cp -f mdtools/pcm2ewf/tool/pcm2ewf $(PCM2EWF)
 
 $(ECHO2VGM): mdtools $(MARSBIN)
-	# echo2vgm fails to compile in Windows
-	if [ $(OS) != Windows_NT ]; then \
-		make -C mdtools/echo2vgm; \
-		cp -f mdtools/echo2vgm/echo2vgm $(ECHO2VGM); \
-	fi
+	$(MAKE) -C mdtools/echo2vgm
+	cp -f mdtools/echo2vgm/echo2vgm $(ECHO2VGM)
 
 $(SLZ): mdtools $(MARSBIN)
 	make -C mdtools/slz/tool
