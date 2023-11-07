@@ -1,23 +1,40 @@
 MARSDEV = $(MARS_BUILD_DIR)
 MARSBIN = $(MARSDEV)/m68k-elf/bin
 
-SJASM     = $(MARSBIN)/sjasm
+MARS_COLOR_RESET = $'\033[0m'
+MARS_COLOR_GREEN = $'\033[1;32;49m'
+
+# Tools required
+PREREQ_GIT 		= $(shell which git)
+ifeq ($(PREREQ_GIT),)
+  $(error 'git' not found. Make sure the 'git' package is installed.)
+endif
+
 SJBRANCH ?= v0.39
 
-.PHONY: all clean
+SJASM_BIN  = $(MARSBIN)/sjasm
 
-all: $(SJASM)
+LOGDIR    := $(shell pwd)
 
-$(SJASM): $(MARSBIN)
+.PHONY: all sjasm
+
+all: $(MARSBIN) sjasm $(SJASM_BIN)
+
+$(SJASM_BIN): $(MARSBIN) sjasm
+	@echo "$(MARS_COLOR_GREEN)>> Building Sjasm...$(MARS_COLOR_RESET)"
+	cd sjasm/Sjasm && make > $(LOGDIR)/sjasm.log 2>&1
+	cp -f sjasm/Sjasm/sjasm $(SJASM_BIN)
+
+sjasm:
 	rm -rf sjasm
-	@echo "> Downloading Sjasm..."
+	@echo "$(MARS_COLOR_GREEN)>> Downloading Sjasm...$(MARS_COLOR_RESET)"
 	git clone https://github.com/konamiman/sjasm --depth=1 --branch $(SJBRANCH)
-	@echo "> Building Sjasm..."
-	cd sjasm/Sjasm && make
-	cp -f sjasm/Sjasm/sjasm $(SJASM)
 
 $(MARSBIN):
 	mkdir -p $(MARSBIN)
 
+
+.PHONY: clean
 clean:
 	rm -rf sjasm
+	rm -f sjasm.log

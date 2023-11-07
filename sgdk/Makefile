@@ -1,6 +1,20 @@
 MARSDEV = $(MARS_BUILD_DIR)
 MARSBIN = $(MARSDEV)/m68k-elf/bin
 
+MARS_COLOR_RESET = $'\033[0m'
+MARS_COLOR_GREEN = $'\033[1;32;49m'
+
+# Tools required
+PREREQ_GIT 		= $(shell which git)
+PREREQ_JAVA 	= $(shell which java)
+ifeq ($(PREREQ_GIT),)
+  $(error 'git' not found. Make sure the 'git' package is installed.)
+endif
+ifeq ($(PREREQ_JAVA),)
+  $(error "'java' not found, needed to build SGDK. Make sure a Java runtime is installed.")
+endif
+
+
 GDK := $(MARSDEV)/m68k-elf
 INC := $(GDK)/inc
 BIN := $(GDK)/bin
@@ -17,13 +31,16 @@ APJ            = $(BIN)/apj.jar
 SGDK_VER ?= master
 SGDK_OPT ?= default
 
-.PHONY: all tools libmd samples clean
+LOGDIR    := $(shell pwd)
+
+.PHONY: all tools libmd samples
 
 all: SGDK tools libmd
 
 tools: $(BINTOS) $(RESCOMP) $(XGMTOOL) $(XGMROOMBUILDER) $(SIZEBND) $(LZ4W) $(APJ)
 
 libmd: $(MARSBIN) SGDK
+	@echo "$(MARS_COLOR_GREEN)>> Building SGDK...$(MARS_COLOR_RESET)"
 	# Copy SGDK files to toolchain
 	cp -rf SGDK/inc $(GDK)/
 	cp -rf SGDK/res $(GDK)/
@@ -34,14 +51,15 @@ libmd: $(MARSBIN) SGDK
 	cp -f SGDK/md.ld $(GDK)/
 	# release & debug
 	#cp -f config-$(SGDK_OPT).h $(INC)/config.h
-	make -C $(GDK) -f makelib.gen cleanrelease
-	make -C $(GDK) -f makelib.gen release
-	make -C $(GDK) -f makelib.gen cleandebug
-	make -C $(GDK) -f makelib.gen debug
+	make -C $(GDK) -f makelib.gen cleanrelease > $(LOGDIR)/sgdk.log 2>&1
+	make -C $(GDK) -f makelib.gen release >> $(LOGDIR)/sgdk.log 2>&1
+	make -C $(GDK) -f makelib.gen cleandebug >> $(LOGDIR)/sgdk.log 2>&1
+	make -C $(GDK) -f makelib.gen debug >> $(LOGDIR)/sgdk.log 2>&1
 	# Clean intermediate files only
-	make -C $(GDK) -f makelib.gen cleanobj cleandep cleanlst
+	make -C $(GDK) -f makelib.gen cleanobj cleandep cleanlst >> $(LOGDIR)/sgdk.log 2>&1
 	
 SGDK:
+	@echo "$(MARS_COLOR_GREEN)>> Downloading SGDK...$(MARS_COLOR_RESET)"
 	git clone --depth=1 --branch $(SGDK_VER) https://github.com/Stephane-D/SGDK
 	# Linux native branch in common.mk breaks LTO plugin, this is a workaround
 	mv -f SGDK/common.mk SGDK/common.mk.bak
@@ -54,6 +72,7 @@ $(GDK)/lib/libmd.a: libmd
 	@true
 
 samples: $(MARSBIN) SGDK $(GDK)/lib/libmd.a
+	@echo "$(MARS_COLOR_GREEN)>> Building samples...$(MARS_COLOR_RESET)"
 	cd SGDK/sample/basics/hello-world && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/basics/image && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/bench && make -f $(GDK)/makefile.gen
@@ -78,12 +97,14 @@ samples: $(MARSBIN) SGDK $(GDK)/lib/libmd.a
 # Tools
 
 $(BINTOS): $(MARSBIN)
+	@echo "$(MARS_COLOR_GREEN)>> Building bintos...$(MARS_COLOR_RESET)"
 	gcc SGDK/tools/bintos/src/bintos.c -o $@
 	
 $(RESCOMP): $(MARSBIN)
 	cp -f SGDK/bin/rescomp.jar $@
 	
 $(XGMTOOL): $(MARSBIN)
+	@echo "$(MARS_COLOR_GREEN)>> Building xgmtool...$(MARS_COLOR_RESET)"
 	cd SGDK/tools/xgmtool/src && gcc *.c -I../inc -lm -o $@
 
 $(XGMROMBUILDER): $(MARSBIN)
@@ -101,5 +122,8 @@ $(APJ):
 $(MARSBIN):
 	mkdir -p $(MARSBIN)
 
+
+.PHONY: clean
 clean:
 	rm -rf SGDK
+	rm -f sgdk.log

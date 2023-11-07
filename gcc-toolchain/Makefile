@@ -37,6 +37,19 @@
 
 MARSDEV = $(MARS_BUILD_DIR)
 
+MARS_COLOR_RESET = $'\033[0m'
+MARS_COLOR_GREEN = $'\033[1;32;49m'
+
+# Tools required
+PREREQ_TAR	 	= $(shell which tar)
+PREREQ_WGET 	= $(shell which wget)
+ifeq ($(PREREQ_TAR),)
+  $(error 'tar' not found. Make sure 'tar' is installed.)
+endif
+ifeq ($(PREREQ_WGET),)
+  $(error 'wget' not found. Make sure the 'wget' package is installed.)
+endif
+
 GNU_MIRROR    ?= https://ftp.gnu.org/gnu
 #GNU_MIRROR   ?= https://mirrors.tripadvisor.com/gnu
 NEWLIB_MIRROR ?= ftp://sourceware.org/pub
@@ -44,14 +57,17 @@ NEWLIB_MIRROR ?= ftp://sourceware.org/pub
 BINUTILS_VER ?= 2.41
 GCC_VER      ?= 13.2.0
 NEWLIB_VER   ?= 4.3.0.20230120
+GDB_VER      ?= 13.2
 
 BINUTILS_DIR  = binutils-$(BINUTILS_VER)
 GCC_DIR       = gcc-$(GCC_VER)
 NEWLIB_DIR    = newlib-$(NEWLIB_VER)
+GDB_DIR       = gdb-$(GDB_VER)
 
 BINUTILS_PKG  = $(BINUTILS_DIR).tar.xz
 GCC_PKG       = $(GCC_DIR).tar.xz
 NEWLIB_PKG    = $(NEWLIB_DIR).tar.gz
+GDB_PKG       = $(GDB_DIR).tar.xz
 
 TARGET  = m68k-elf
 PREFIX  = $(MARSDEV)/$(TARGET)
@@ -63,18 +79,17 @@ LANGS ?= c
 # Detect the number of processors for a parallel make
 NPROC := $(shell nproc --all)
 
-
-.PHONY: all with-newlib clean
+.PHONY: all with-newlib
 
 all: BUILD_LANGS = $(LANGS)
-all: mk-binutils mk-gcc
+all: mk-binutils mk-gcc mk-gdb
 
 with-newlib: BUILD_LANGS = c
-with-newlib: mk-binutils mk-gcc mk-newlib mk-gcc-newlib
+with-newlib: mk-binutils mk-gcc mk-newlib mk-gcc-newlib mk-gdb
 
 mk-binutils: BUILD_DIR=$(BINUTILS_DIR)/build
 mk-binutils: $(BINUTILS_DIR)
-	@echo "+++ Building $(BINUTILS_DIR) for m68k..."
+	@echo "$(MARS_COLOR_GREEN)>> Building binutils for m68k...$(MARS_COLOR_RESET)"
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
 		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
@@ -89,7 +104,7 @@ mk-binutils: $(BINUTILS_DIR)
 
 mk-gcc: BUILD_DIR=$(GCC_DIR)/build
 mk-gcc: $(GCC_DIR)
-	@echo "+++ Building $(GCC_DIR) for m68k..."
+	@echo "$(MARS_COLOR_GREEN)>> Building gcc for m68k...$(MARS_COLOR_RESET)"
 	cd $(GCC_DIR) && \
 		./contrib/download_prerequisites > $(LOGDIR)/gcc.log 2>&1
 	@mkdir -p $(BUILD_DIR)
@@ -108,7 +123,7 @@ mk-gcc: $(GCC_DIR)
 
 mk-newlib: BUILD_DIR=$(NEWLIB_DIR)/build
 mk-newlib: $(NEWLIB_DIR)
-	@echo "+++ Building $(NEWLIB_DIR) for m68k..."
+	@echo "$(MARS_COLOR_GREEN)>> Building newlib for m68k...$(MARS_COLOR_RESET)"
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
 		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
@@ -123,7 +138,7 @@ mk-newlib: $(NEWLIB_DIR)
 
 mk-gcc-newlib: BUILD_DIR=$(GCC_DIR)/build
 mk-gcc-newlib: $(GCC_DIR)
-	@echo "+++ Building $(GCC_DIR) for m68k with newlib..."
+	@echo "$(MARS_COLOR_GREEN)>> Building gcc with newlib for m68k...$(MARS_COLOR_RESET)"
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && \
 		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
@@ -139,15 +154,37 @@ mk-gcc-newlib: $(GCC_DIR)
 	@rm -rf $(BUILD_DIR)
 	@touch mk-gcc-newlib
 
+mk-gdb: BUILD_DIR=$(GDB_DIR)/build
+mk-gdb: $(GDB_DIR)
+	@echo "$(MARS_COLOR_GREEN)>> Building gdb for m68k...$(MARS_COLOR_RESET)"
+	@mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR) && \
+		../configure --target=$(TARGET) --prefix=$(PREFIX) --with-cpu=m68000 \
+		--libdir=$(MARSDEV)/$(TARGET)/lib \
+		--libexecdir=$(MARSDEV)/$(TARGET)/libexec \
+		--enable-languages=$(LANGS) \
+		--disable-multilib --disable-tls --disable-werror \
+		> $(LOGDIR)/gdb.log 2>&1
+	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/gdb.log 2>&1
+	make -C $(BUILD_DIR) install >> $(LOGDIR)/gdb.log 2>&1
+	rm -rf $(GDB_DIR)
+
 # Download packages from mirror
 $(BINUTILS_PKG):
+	@echo "$(MARS_COLOR_GREEN)>> Downloading binutils...$(MARS_COLOR_RESET)"
 	@wget $(GNU_MIRROR)/binutils/$(BINUTILS_PKG)
 
 $(GCC_PKG):
+	@echo "$(MARS_COLOR_GREEN)>> Downloading gcc...$(MARS_COLOR_RESET)"
 	@wget $(GNU_MIRROR)/gcc/gcc-$(GCC_VER)/$(GCC_PKG)
 
 $(NEWLIB_PKG):
+	@echo "$(MARS_COLOR_GREEN)>> Downloading newlib...$(MARS_COLOR_RESET)"
 	@wget $(NEWLIB_MIRROR)/newlib/$(NEWLIB_PKG)
+
+$(GDB_PKG):
+	@echo "$(MARS_COLOR_GREEN)>> Downloading gdb...$(MARS_COLOR_RESET)"
+	@wget $(GNU_MIRROR)/gdb/$(GDB_PKG)
 
 # Extract source packages with tar
 $(BINUTILS_DIR): $(BINUTILS_PKG)
@@ -159,8 +196,15 @@ $(GCC_DIR): $(GCC_PKG)
 $(NEWLIB_DIR): $(NEWLIB_PKG)
 	tar xf $(NEWLIB_PKG)
 
+$(GDB_DIR): $(GDB_PKG)
+	tar xf $(GDB_PKG)
+
+
+.PHONY: clean
 clean:
 	rm -rf $(BINUTILS_DIR)
 	rm -rf $(GCC_DIR)
 	rm -rf $(NEWLIB_DIR)
-	rm -f mk-binutils mk-gcc mk-newlib mk-gcc-newlib
+	rm -rf $(GDB_DIR)
+	rm -f mk-binutils mk-gcc mk-newlib mk-gcc-newlib mk-gdb
+	rm -f binutils.log gcc.log newlib.log gcc-newlib.log gdb.log

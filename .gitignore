@@ -20,15 +20,15 @@ symbol.txt
 
 .vscode/
 
-bin/
-out/
 mars/
-toolchain/gcc-*/
-toolchain/binutils-*/
-toolchain/newlib-*/
+gcc-toolchain/gcc-*
+gcc-toolchain/binutils-*
+gcc-toolchain/newlib-*
+gcc-toolchain/gdb-*
 z80-tools/sjasm/
 sgdk/SGDK/
 sik-tools/mdtools/
+blastem/blastem/
 
 
 flamewing-tools/mdcomp/
