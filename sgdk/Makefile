@@ -98,14 +98,14 @@ samples: $(MARSBIN) SGDK $(GDK)/lib/libmd.a
 
 $(BINTOS): $(MARSBIN)
 	@echo "$(MARS_COLOR_GREEN)>> Building bintos...$(MARS_COLOR_RESET)"
-	gcc SGDK/tools/bintos/src/bintos.c -o $@
+	gcc SGDK/tools/bintos/src/bintos.c -o $@ > $(LOGDIR)/bintos.log 2>&1
 	
 $(RESCOMP): $(MARSBIN)
 	cp -f SGDK/bin/rescomp.jar $@
 	
 $(XGMTOOL): $(MARSBIN)
 	@echo "$(MARS_COLOR_GREEN)>> Building xgmtool...$(MARS_COLOR_RESET)"
-	cd SGDK/tools/xgmtool/src && gcc *.c -I../inc -lm -o $@
+	cd SGDK/tools/xgmtool/src && gcc *.c -I../inc -lm -o $@  > $(LOGDIR)/xgmtool.log 2>&1
 
 $(XGMROMBUILDER): $(MARSBIN)
 	cp -f SGDK/bin/xgmRomBuilder.jar $@
@@ -126,4 +126,4 @@ $(MARSBIN):
 .PHONY: clean
 clean:
 	rm -rf SGDK
-	rm -f sgdk.log
+	rm -f sgdk.log bintos.log xgmtool.log

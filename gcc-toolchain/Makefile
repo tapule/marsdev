@@ -54,9 +54,9 @@ GNU_MIRROR    ?= https://ftp.gnu.org/gnu
 #GNU_MIRROR   ?= https://mirrors.tripadvisor.com/gnu
 NEWLIB_MIRROR ?= ftp://sourceware.org/pub
 
-BINUTILS_VER ?= 2.41
+BINUTILS_VER ?= 2.42
 GCC_VER      ?= 13.2.0
-NEWLIB_VER   ?= 4.3.0.20230120
+NEWLIB_VER   ?= 4.4.0.20231231
 GDB_VER      ?= 13.2
 
 BINUTILS_DIR  = binutils-$(BINUTILS_VER)
@@ -167,7 +167,8 @@ mk-gdb: $(GDB_DIR)
 		> $(LOGDIR)/gdb.log 2>&1
 	make -C $(BUILD_DIR) all -j$(NPROC) >> $(LOGDIR)/gdb.log 2>&1
 	make -C $(BUILD_DIR) install >> $(LOGDIR)/gdb.log 2>&1
-	rm -rf $(GDB_DIR)
+	@rm -rf $(BUILD_DIR)
+	@touch mk-gdb
 
 # Download packages from mirror
 $(BINUTILS_PKG):
